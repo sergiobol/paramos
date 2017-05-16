@@ -3,6 +3,7 @@ library(vegan)
 library(raster)
 library(ape)
 library(ggplot2)
+library(rgeos)
 
 
 for (p in 1:14){
@@ -75,20 +76,16 @@ pcoa4 <- pcoa(m_dsor, correction = "cailliez")#correction = se utiliza para corr
 biplot(pcoa4)
 
 ### Rasters clima ##
-
-COL<-shapefile("Clim_data/COL_admin/COL_adm0.shp")
-DEP<-shapefile("COL_admin/Col_admin_1.shp")
-plot(COL)
-plot(DEP)
-
-temp<-raster("bioclim/bio1.bil")
+temp<-raster("Clim_data/bioclim/bio1.bil")
 temp<-temp/10
 plot(temp)
-
-TCOL<-crop(temp, extent(COL))
 COLr<-rasterize(COL, TCOL)
 plot(COLr)
-COLr
+
+TCOL<-crop(temp, extent(COL))
+plot(TCOL)
+# rpar<- rasterize(par, COLr)
+# plot(rpar)
 
 mTCOL<-as.matrix(TCOL)
 mCol<-as.matrix(COLr)
@@ -97,9 +94,62 @@ temp<-mTCOL*mCol
 rTemp<-raster(temp, xmn=-81.84153 , xmx=-66.87033, ymn=-4.228429, ymx=15.91248)
 plot(rTemp)
 
+#Shapefile-reprojection
+cool <- shapefile("data_project/shape_files_magna_sirgas/col_adm0.shp")
+crs(cool)
+paar <- shapefile("data_project/shape_files_magna_sirgas/Complejos de Paramos_Escala100K.shp")
+crs(paar)
+extent(cool)
+extent(paar)
+cool@bbox <- matrix(data = c(563851.7, 1233331,546086.9, 1710129), 2,2, byrow =  T)
+colnames(cool@bbox) <- c("min","max")
+rownames(cool@bbox) <- c("x", "y")
+plot(cool)
+plot(paar)
+
+
+
+
+##
+
+r_par <- rasterize(com_par, rTemp)
+mpar <- as.matrix(r_par)
+plot(r_par)
+
+id <- c(3, 5, 6, 9, 10, 13, 14, 19, 21, 23, 25, 27, 31, 32)
+rownames(ab) ## orden de complejos en tabla de abundancia
+
+##Número de pixeles por complejo de paramo
+para <- data.frame(row.names = sort(par@data$CODCOMPLEJ))
+for (m in 1:36){
+  para$pix[m] <- length(which(mpar==m))
+  print(m)
+}
+
+## Extracción de variables climáticas
+COLr<-rasterize(COL, TCOL)
+plot(COLr)
+mask<-as.matrix(COLr)
+m <- matrix(NA, nrow = length(rownames(ab)), ncol = 19)
+m
+colnames(m)<-c("mT", "dR", "isoT", "Tseas", "Tmax", "Tmin", "Trange", "mTwetQ", "mTdryQ", "mTwarmQ", "mTcoldQ", "aPrec", "PwetM", "PdryM", "Pseas", "PwetQ", "PdryQ", "PwarmQ", "PcoldQ")
+rownames(m)<- rownames(ab)
+
+
+for (i in id){
+  l <- which(mpar==i)
+  print(i)
+  for (j in 1:ncol(m)){
+    r<-raster(paste("Clim_data/bioclim/bio", j, ".bil", sep=""))
+    rcol<-crop(r, extent(COL))
+    mcol<-as.matrix(rcol)
+    mcol2<-mcol*mask
+    m[k,j] <- mean(mcol2[l]) ## revisar
+  }
+}
+
 
 ## shapefile páramos
-
 par <- shapefile("sectores_paramos_Col/Shapes files/Complejos_Paramos_100K/Complejos de Paramos_Escala100K.shp")
 plot(par)
 str(par)
